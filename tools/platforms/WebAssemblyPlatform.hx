@@ -101,7 +101,7 @@ class WebAssemblyPlatform extends PlatformTarget
 
 	public override function build():Void
 	{
-		var sdkPath = null;
+		var sdkPath:String = null;
 
 		if (project.defines.exists("EMSCRIPTEN_SDK"))
 		{
@@ -359,7 +359,12 @@ class WebAssemblyPlatform extends PlatformTarget
 	{
 		var path = targetDirectory + "/haxe/" + buildType + ".hxml";
 
-		if (FileSystem.exists(path))
+		// try to use the existing .hxml file. however, if the project file was
+		// modified more recently than the .hxml, then the .hxml cannot be
+		// considered valid anymore. it may cause errors in editors like vscode.
+		if (FileSystem.exists(path)
+			&& (project.projectFilePath == null || !FileSystem.exists(project.projectFilePath)
+				|| (FileSystem.stat(path).mtime.getTime() > FileSystem.stat(project.projectFilePath).mtime.getTime())))
 		{
 			return File.getContent(path);
 		}
@@ -425,6 +430,11 @@ class WebAssemblyPlatform extends PlatformTarget
 			project.haxeflags.push("-xml " + targetDirectory + "/types.xml");
 		}
 
+		if (project.targetFlags.exists("json"))
+		{
+			project.haxeflags.push("-json " + targetDirectory + "/types.json");
+		}
+
 		var context = project.templateContext;
 
 		context.WIN_FLASHBACKGROUND = StringTools.hex(project.window.background, 6);
@@ -466,7 +476,7 @@ class WebAssemblyPlatform extends PlatformTarget
 					var name = Path.withoutDirectory(dependency.path);
 
 					context.linkedLibraries.push("./" + dependencyPath + "/" + name);
-					System.copyIfNewer(dependency.path, Path.combine(destination, Path.combine(dependencyPath, name)));
+					copyIfNewer(dependency.path, Path.combine(destination, Path.combine(dependencyPath, name)));
 				}
 			}
 		}
